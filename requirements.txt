@@ -4,3 +4,6 @@ scipy
 pyttsx3
 google-genai
 python-dotenv
+openwakeword
+numpy
+onnxruntime

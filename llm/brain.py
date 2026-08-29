@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
 from google import genai
-import httpx
 
 
 class JarvisBrain:
@@ -14,30 +13,40 @@ class JarvisBrain:
 
         if not api_key:
             raise ValueError(
-                "GEMINI_API_KEY was not found. "
-                "Check your .env file."
+                "GEMINI_API_KEY was not found."
             )
 
-        self.client = genai.Client(
-            api_key=api_key,
-            http_options={
-                "timeout": 60_000
-            }
-        )
+        self.client = genai.Client(api_key=api_key)
 
-        self.model = "gemini-3.7-flash"
+        self.model = "gemini-3.5-flash"
 
         print("JARVIS cloud AI brain initialized successfully.")
 
-    def ask(self, question):
+    def ask(self, question, memory=None):
 
         try:
 
             print("JARVIS is thinking...")
 
+            conversation = ""
+
+            # Add previous conversation
+            if memory:
+                for message in memory.get_messages():
+
+                    role = message["role"]
+                    content = message["content"]
+
+                    conversation += (
+                        f"{role.upper()}: {content}\n"
+                    )
+
+            # Add the new question
+            conversation += f"USER: {question}\nASSISTANT:"
+
             response = self.client.interactions.create(
                 model=self.model,
-                input=question
+                input=conversation
             )
 
             answer = response.output_text
@@ -49,10 +58,10 @@ class JarvisBrain:
 
         except Exception as error:
 
-            print("\n" + "=" * 60)
-            print("GEMINI API ERROR:")
-            print(f"Type: {type(error).__name__}")
-            print(f"Details: {repr(error)}")
-            print("=" * 60 + "\n")
+            print(
+                f"LLM Error: {type(error).__name__}: {error}"
+            )
 
-            return "I'm having trouble connecting to my cloud brain right now."
+            return (
+                "I'm having trouble accessing my cloud brain."
+            )
