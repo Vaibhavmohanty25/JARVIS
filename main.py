@@ -5,7 +5,9 @@ from core.memory import ConversationMemory
 from core.wake_word_engine import WakeWordEngine
 from core.agent_router import AgentRouter
 from core.router import route_command
+
 from llm.brain import JarvisBrain
+from vision.vision_engine import VisionEngine
 
 
 def process_command(
@@ -13,26 +15,39 @@ def process_command(
     speaker,
     brain,
     memory,
-    agent_router
+    agent_router,
+    vision
 ):
 
     # Normalize the command
     command_lower = command.lower().strip()
 
-    # ------------------------------------------
+    # ==========================================
     # EXIT COMMANDS
-    # ------------------------------------------
+    # ==========================================
 
     if any(
         word in command_lower
-        for word in ["exit", "quit", "stop", "shutdown"]
+        for word in [
+            "exit",
+            "quit",
+            "stop",
+            "shutdown"
+        ]
     ):
-        speaker.speak("Goodbye. Shutting down Jarvis.")
+        # Stop vision mode before shutting down
+        if vision.is_running:
+            vision.stop_vision_mode()
+
+        speaker.speak(
+            "Goodbye. Shutting down Jarvis."
+        )
+
         return False
 
-    # ------------------------------------------
+    # ==========================================
     # CLEAR MEMORY COMMAND
-    # ------------------------------------------
+    # ==========================================
 
     if "clear memory" in command_lower:
 
@@ -44,12 +59,15 @@ def process_command(
 
         return True
 
-     # ==========================================
+    # ==========================================
     # STEP 1: FAST LOCAL ROUTER
     # No Gemini API call
     # ==========================================
 
-    response = route_command(command)
+    response = route_command(
+        command,
+        vision=vision
+    )
 
     if response:
 
@@ -61,9 +79,10 @@ def process_command(
         speaker.speak(response)
 
         return True
+
     # ==========================================
     # STEP 2: AI AGENT ROUTER
-    # Only used for more flexible commands
+    # Flexible AI-based skill selection
     # ==========================================
 
     print(
@@ -81,6 +100,7 @@ def process_command(
         speaker.speak(response)
 
         return True
+
     # ==========================================
     # STEP 3: GEMINI CONVERSATION
     # ==========================================
@@ -102,7 +122,7 @@ def process_command(
         memory
     )
 
-    # Save response
+    # Save JARVIS response
     memory.add_jarvis_message(response)
 
     # Speak response
@@ -117,9 +137,9 @@ def main():
     print("            JARVIS INITIALIZING")
     print("=" * 55)
 
-    # ------------------------------------------
+    # ==========================================
     # INITIALIZE CORE MODULES
-    # ------------------------------------------
+    # ==========================================
 
     listener = JarvisListener()
 
@@ -131,11 +151,19 @@ def main():
         max_messages=10
     )
 
-    agent_router = AgentRouter(brain)
+    agent_router = AgentRouter(
+        brain
+    )
 
-    # ------------------------------------------
+    # ==========================================
+    # INITIALIZE VISION ENGINE
+    # ==========================================
+
+    vision = VisionEngine()
+
+    # ==========================================
     # INITIALIZE WAKE WORD ENGINE
-    # ------------------------------------------
+    # ==========================================
 
     wake_engine = WakeWordEngine(
         model_name="hey_jarvis",
@@ -146,9 +174,9 @@ def main():
         device_id=None
     )
 
-    # ------------------------------------------
+    # ==========================================
     # STARTUP MESSAGE
-    # ------------------------------------------
+    # ==========================================
 
     speaker.speak(
         "Jarvis is online. "
@@ -211,7 +239,8 @@ def main():
             speaker=speaker,
             brain=brain,
             memory=memory,
-            agent_router=agent_router
+            agent_router=agent_router,
+            vision=vision
         )
 
         # --------------------------------------
@@ -226,8 +255,11 @@ def main():
             )
 
     # ==========================================
-    # SHUTDOWN
+    # SHUTDOWN CLEANUP
     # ==========================================
+
+    if vision.is_running:
+        vision.stop_vision_mode()
 
     print("\nJARVIS has shut down.")
 

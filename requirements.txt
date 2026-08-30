@@ -7,3 +7,6 @@ python-dotenv
 openwakeword
 numpy
 onnxruntime
+pillow
+ultralytics
+opencv-python
